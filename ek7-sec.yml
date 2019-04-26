@@ -1,0 +1,78 @@
+---
+- name: Create Elasticsearch Certificates
+  hosts: elastic-1
+  become: True
+  tags: certificates
+  tasks:
+    - name: create shared directory under /vagrant
+      file:
+        path: /vagrant/files
+        state: directory
+
+    - name: create ca
+      shell: "/usr/share/elasticsearch/bin/elasticsearch-certutil ca --pass changeme --out /vagrant/files/elastic-stack-ca.p12"
+
+    - name: create certificates
+      shell: "/usr/share/elasticsearch/bin/elasticsearch-certutil cert --ca /vagrant/files/elastic-stack-ca.p12 --ca-pass changeme --pass changeme --out /vagrant/files/elastic-certificates.p12"
+
+- name: Configure Elasticsearch Hosts
+  hosts: elastic
+  become: True
+  tags: elasticsearch
+  tasks:
+    - name: create certs directory under /etc/elasticsearch
+      file:
+        path: /etc/elasticsearch/certs
+        owner: root
+        group: elasticsearch
+        state: directory
+
+    - name: copy certificates to /etc/elasticsearch/certs
+      copy:
+        src: /vagrant/files/elastic-certificates.p12
+        dest: /etc/elasticsearch/certs/elastic-certificates.p12
+        remote_src: yes
+        owner: root
+        group: elasticsearch
+        mode: 0660
+
+    - name: modify /etc/elasticsearch/elasticsearch.yml
+      lineinfile:
+        path: /etc/elasticsearch/elasticsearch.yml
+        line: "{{ item }}"
+      with_items:
+        - "xpack.security.enabled: true"
+        - "xpack.security.transport.ssl.enabled: true"
+        - "xpack.security.transport.ssl.verification_mode: certificate"
+        - "xpack.security.transport.ssl.keystore.path: certs/elastic-certificates.p12"
+        - "xpack.security.transport.ssl.truststore.path: certs/elastic-certificates.p12"
+        - "xpack.security.transport.ssl.keystore.password: changeme"
+        - "xpack.security.transport.ssl.truststore.password: changeme"
+    
+    - name: restart elasticsearch service and make sure the service is runnning
+      systemd:
+        name: elasticsearch.service
+        enabled: yes
+        state: restarted
+        daemon_reload: yes
+
+- name: Configure Kibana Host
+  hosts: kibana
+  become: True
+  tags: kibana
+  tasks:
+    - name: modify /etc/kibana/kibana.yml
+      lineinfile:
+        path: /etc/kibana/kibana.yml
+        line: "{{ item }}"
+      with_items:
+        - "elasticsearch.username: \"elastic\""
+        - "elasticsearch.password: \"changeme\""
+
+    - name: restart kibana service and make sure the service is runnning
+      systemd:
+        name: kibana.service
+        enabled: yes
+        state: restarted
+        daemon_reload: yes
+

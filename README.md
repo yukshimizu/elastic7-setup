@@ -18,7 +18,7 @@ This process setups 3 x Elasticsearch nodes and a Kibana node. If you want to ch
 2. After all the VMs have booted up, go to Kibana.
   - http://ip-address:5601/
 
-## Enable security features in Enalsticsearch
+## Enable security features in Elasticsearch
 If you want to try all of the platinum features, you can start a 30-day trial.
 
 1. Enable 30-day trial at Kibana
